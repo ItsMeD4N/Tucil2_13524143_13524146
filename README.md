@@ -1,4 +1,4 @@
-# Tucil2_13524143_13524146
+# Tucil2_13524143_13524145
 ## Voxelization 3D dengan Octree & Divide and Conquer
 
 Program ini menerima file model 3D (`.obj`) dan mengubahnya menjadi representasi **voxel** menggunakan algoritma **Divide and Conquer** berbasis struktur data **Octree**. Setiap voxel dihasilkan dari leaf node Octree pada kedalaman maksimum yang berpotongan dengan permukaan mesh.

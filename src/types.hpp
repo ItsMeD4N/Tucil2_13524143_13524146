@@ -35,7 +35,6 @@ struct Triangle {
 
 using Face = Triangle;
 
-// Bounding box, didefinisikan oleh titik min dan max
 struct AABB {
     Vector3 min, max;
 
@@ -50,7 +49,6 @@ struct AABB {
 
 using Voxel = AABB;
 
-// Statistik voxelisasi, counter pakai atomic biar thread-safe
 struct VoxelStats {
     std::atomic<int> totalVoxels{0};
     std::atomic<int> totalVertices{0};

@@ -9,8 +9,6 @@
 #include <filesystem>
 #include "types.hpp"
 
-// Ambil indeks vertex dari token face (handle format v/vt/vn dll)
-// Konversi .obj 1-based ke 0-based, support indeks negatif
 inline int extractVertexIndex(const std::string& token, int totalVertices) {
     std::string indexStr = token.substr(0, token.find('/'));
     int idx = std::stoi(indexStr);
@@ -23,7 +21,6 @@ inline int extractVertexIndex(const std::string& token, int totalVertices) {
     return idx;
 }
 
-// Parse file .obj, ambil vertex (v) dan face (f) saja, sisanya diskip
 inline bool parseObj(const std::string& path,
                      std::vector<Vertex>& vertices,
                      std::vector<Face>& triangles)
@@ -88,7 +85,6 @@ inline bool parseObj(const std::string& path,
     return true;
 }
 
-// Ekspor voxel ke .obj, tiap voxel = 8 vertex + 12 face segitiga
 inline bool exportToObj(const std::string& path,
                         const std::vector<Voxel>& voxels)
 {
@@ -106,7 +102,6 @@ inline bool exportToObj(const std::string& path,
     file << "# Voxelized OBJ output\n";
     file << "# Total voxels: " << voxels.size() << "\n\n";
 
-    // 12 segitiga per kubus (6 sisi x 2 tri), indeks lokal 0-7
     static const int faceIndices[12][3] = {
         {4, 5, 6}, {4, 6, 7},   // depan
         {1, 0, 3}, {1, 3, 2},   // belakang

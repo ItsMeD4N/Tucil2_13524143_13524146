@@ -8,16 +8,12 @@
 #include <cmath>
 #include "types.hpp"
 
-// SAT (Separating Axis Theorem) untuk cek tabrakan AABB vs Triangle
-// Ref: Akenine-Moller, "Fast 3D Triangle-Box Overlap Testing" (2001)
-// Total 13 sumbu diuji: 3 axis AABB + 1 normal tri + 9 cross-product
 namespace SAT {
 
 inline bool triangleIntersectsAABB(const Triangle& tri, const AABB& box) {
     Vector3 c = box.center();
     Vector3 h = box.halfSize();
 
-    // translasi supaya AABB centered di origin
     Vector3 v0 = tri.v0 - c;
     Vector3 v1 = tri.v1 - c;
     Vector3 v2 = tri.v2 - c;
@@ -26,7 +22,6 @@ inline bool triangleIntersectsAABB(const Triangle& tri, const AABB& box) {
     Vector3 e1 = v2 - v1;
     Vector3 e2 = v0 - v2;
 
-    // tes 3 axis AABB (x, y, z)
     {
         double triMin = std::min({v0.x, v1.x, v2.x});
         double triMax = std::max({v0.x, v1.x, v2.x});
@@ -41,7 +36,6 @@ inline bool triangleIntersectsAABB(const Triangle& tri, const AABB& box) {
         if (triMax < -h.z || triMin > h.z) return false;
     }
 
-    // tes normal segitiga
     {
         Vector3 normal = e0.cross(e1);
         double d = normal.dot(v0);
@@ -51,7 +45,6 @@ inline bool triangleIntersectsAABB(const Triangle& tri, const AABB& box) {
         if (d > r || d < -r) return false;
     }
 
-    // tes 9 cross-product (3 edge tri x 3 axis AABB)
     auto testAxis = [&](const Vector3& axis) -> bool {
         double p0 = axis.dot(v0);
         double p1 = axis.dot(v1);
@@ -74,14 +67,14 @@ inline bool triangleIntersectsAABB(const Triangle& tri, const AABB& box) {
         double len2 = axes[i].x * axes[i].x +
                       axes[i].y * axes[i].y +
                       axes[i].z * axes[i].z;
-        if (len2 < 1e-12) continue; // skip degenerate axis
+        if (len2 < 1e-12) continue; 
         if (!testAxis(axes[i])) return false;
     }
 
     return true;
 }
 
-} // namespace SAT
+} 
 
 struct OctreeNode {
     AABB bounds;
@@ -89,7 +82,6 @@ struct OctreeNode {
     bool isLeaf = false;
 };
 
-// Bagi AABB jadi 8 sub-kubus, childIndex 0-7 pakai bit-masking (x,y,z)
 inline AABB getChildAABB(const AABB& parent, int childIndex) {
     Vector3 mid = parent.center();
     AABB child;
@@ -102,7 +94,6 @@ inline AABB getChildAABB(const AABB& parent, int childIndex) {
     return child;
 }
 
-// Build octree secara rekursif (sekuensial, dipanggil dari depth 1+)
 inline std::unique_ptr<OctreeNode> buildOctree(
     const AABB& bounds,
     const std::vector<Triangle>& relevantTriangles,
@@ -115,7 +106,6 @@ inline std::unique_ptr<OctreeNode> buildOctree(
         stats.nodesFormedAtDepth[depth]++;
     }
 
-    // filter segitiga yang intersect AABB ini
     std::vector<Triangle> intersecting;
     intersecting.reserve(relevantTriangles.size() / 2);
     for (const auto& tri : relevantTriangles) {
@@ -123,7 +113,6 @@ inline std::unique_ptr<OctreeNode> buildOctree(
             intersecting.push_back(tri);
     }
 
-    // prune kalau ga ada yang kena
     if (intersecting.empty()) {
         std::lock_guard<std::mutex> lock(stats.statsMutex);
         stats.nodesPrunedAtDepth[depth]++;
@@ -133,7 +122,6 @@ inline std::unique_ptr<OctreeNode> buildOctree(
     auto node = std::make_unique<OctreeNode>();
     node->bounds = bounds;
 
-    // leaf = voxel
     if (depth == maxDepth) {
         node->isLeaf = true;
         {
@@ -144,7 +132,6 @@ inline std::unique_ptr<OctreeNode> buildOctree(
         return node;
     }
 
-    // rekursi ke 8 anak
     for (int i = 0; i < 8; ++i) {
         AABB childBounds = getChildAABB(bounds, i);
         node->children[i] = buildOctree(
@@ -155,7 +142,6 @@ inline std::unique_ptr<OctreeNode> buildOctree(
     return node;
 }
 
-// Build octree paralel di depth 0, tiap anak jalan di thread terpisah
 inline std::unique_ptr<OctreeNode> buildOctreeParallel(
     const AABB& bounds,
     const std::vector<Triangle>& relevantTriangles,
@@ -194,7 +180,6 @@ inline std::unique_ptr<OctreeNode> buildOctreeParallel(
         return node;
     }
 
-    // tiap anak punya vector voxel lokal biar ga rebutan lock
     struct ChildResult {
         std::unique_ptr<OctreeNode> node;
         std::vector<Voxel> localVoxels;
@@ -214,7 +199,6 @@ inline std::unique_ptr<OctreeNode> buildOctreeParallel(
             });
     }
 
-    // merge hasil dari semua thread
     for (int i = 0; i < 8; ++i) {
         ChildResult result = futures[i].get();
         node->children[i] = std::move(result.node);
@@ -227,7 +211,6 @@ inline std::unique_ptr<OctreeNode> buildOctreeParallel(
     return node;
 }
 
-// Entry point: hitung AABB global, jadikan kubus sempurna, bangun octree
 inline void runVoxelization(
     const std::vector<Vertex>& vertices,
     const std::vector<Face>& triangles,
@@ -240,7 +223,6 @@ inline void runVoxelization(
         return;
     }
 
-    // cari batas min-max dari seluruh vertex
     Vector3 globalMin = vertices[0];
     Vector3 globalMax = vertices[0];
     for (const auto& v : vertices) {
@@ -252,7 +234,6 @@ inline void runVoxelization(
         globalMax.z = std::max(globalMax.z, v.z);
     }
 
-    // bikin kubus sempurna + padding 1%
     double sizeX = globalMax.x - globalMin.x;
     double sizeY = globalMax.y - globalMin.y;
     double sizeZ = globalMax.z - globalMin.z;
